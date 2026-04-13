@@ -264,10 +264,7 @@ def check_balance(app_key):
 # Build UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(
-    title="Narrator AI",
-    theme=gr.themes.Soft(),
-) as app:
+with gr.Blocks(title="Narrator AI") as app:
 
     gr.Markdown("# Narrator AI\nAI-powered video narration generation.")
 
@@ -388,4 +385,4 @@ with gr.Blocks(
 
 
 if __name__ == "__main__":
-    app.launch()
+    app.launch(theme=gr.themes.Soft())
