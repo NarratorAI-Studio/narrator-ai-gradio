@@ -471,7 +471,7 @@ def build_ui_updates():
 # Build UI
 # ---------------------------------------------------------------------------
 
-with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
+with gr.Blocks(title="Narrator AI / AI 解说大师", theme=gr.themes.Soft()) as app:
 
     with gr.Row():
         title_md = gr.Markdown(t("title"))
@@ -601,4 +601,4 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
 
 if __name__ == "__main__":
-    app.launch(theme=gr.themes.Soft())
+    app.launch()
