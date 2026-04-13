@@ -11,7 +11,7 @@ pinned: false
 
 # Narrator AI — Web UI
 
-Web interface for [Narrator AI](https://ai.jieshuo.cn/) — AI-powered video narration generation platform.
+Web interface for [Narrator AI](https://www.jieshuo.cn/) — AI-powered video narration generation platform.
 
 Select a movie, pick a narration style, choose a voice and BGM — get a complete narration video. No manual editing required.
 
@@ -49,7 +49,7 @@ Both paths support an optional final step: **magic-video** (visual template appl
 
 ### 1. Get an API Key
 
-Sign up at [ai.jieshuo.cn](https://ai.jieshuo.cn/) and get your API key.
+[Apply for an API key](https://ceex7z9m67.feishu.cn/share/base/form/shrcnmSHfAbYrFLsSeIrktEuYGf) (fill out the form, key will be issued after review).
 
 ### 2. Use the Web UI
 
@@ -99,7 +99,8 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 
 ## Related
 
-- [Narrator AI Platform](https://ai.jieshuo.cn/) — Main product
+- [Narrator AI](https://www.jieshuo.cn/) — Official website
+- [Apply for API Key](https://ceex7z9m67.feishu.cn/share/base/form/shrcnmSHfAbYrFLsSeIrktEuYGf) — Key application form
 - [narrator-ai-cli](https://github.com/GridLtd-ProductDev/narrator-ai-cli) — CLI tool for terminals and AI agents
 - [API Docs](https://ceex7z9m67.feishu.cn/wiki/WLPnwBysairenFkZDbicZOfKnbc) — Material previews, voice samples, BGM catalog
 
