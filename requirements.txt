@@ -1,0 +1,4 @@
+gradio>=5.0.0
+httpx[socks]>=0.28.0
+httpx-sse>=0.4.0
+pyyaml>=6.0
