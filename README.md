@@ -1,12 +1,16 @@
 ---
-title: Narrator Ai
-emoji: 🏆
-colorFrom: blue
-colorTo: yellow
+title: Narrator AI
+emoji: 🎬
+colorFrom: indigo
+colorTo: purple
 sdk: gradio
-sdk_version: 6.12.0
+sdk_version: 5.29.0
 app_file: app.py
 pinned: false
 ---
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+# Narrator AI — Web UI
+
+AI-powered video narration generation. Select a movie, pick a style, choose a voice — get a complete narration video.
+
+Powered by [Narrator AI API](https://ai.jieshuo.cn/).
