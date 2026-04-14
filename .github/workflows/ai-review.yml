@@ -16,76 +16,82 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get changed files
-        id: changed
-        run: |
-          FILES=$(gh pr diff ${{ github.event.pull_request.number }} --name-only | head -20)
-          echo "files<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$FILES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Security review
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get diff
-        id: diff
+          PR_NUM: ${{ github.event.pull_request.number }}
         run: |
-          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} | head -500)
-          echo "diff<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$DIFF" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Collect diff into files (avoids shell expansion issues)
+          gh pr diff "$PR_NUM" --name-only > /tmp/changed_files.txt 2>/dev/null || true
+          gh pr diff "$PR_NUM" > /tmp/pr_diff.txt 2>/dev/null || true
 
-      - name: Security check summary
-        run: |
           echo "## AI Review Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          # Changed files
           echo "### Changed files" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "${{ steps.changed.outputs.files }}" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/changed_files.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          # Check for common security issues in diff
           ISSUES=0
 
-          # API keys / secrets in code
-          if echo "${{ steps.diff.outputs.diff }}" | grep -iE "api[_-]?key|secret|password|token" | grep -vE "\.env|secrets\.|GITHUB_TOKEN|HF_TOKEN|\.yml|\.yaml|test_|# |label|placeholder|type.*password" | head -5 > /tmp/security_hits; then
-            if [ -s /tmp/security_hits ]; then
-              echo "### ⚠️ Potential secrets in code" >> "$GITHUB_STEP_SUMMARY"
+          # Check 1: hardcoded secrets
+          if grep -iE "(api[_-]?key|secret|password|token)\s*[:=]" /tmp/pr_diff.txt \
+            | grep "^+" \
+            | grep -vE "\.env|secrets\.|GITHUB_TOKEN|HF_TOKEN|\.yml|\.yaml|test_|#|label|placeholder|type.*password|\.example" \
+            > /tmp/secret_hits.txt 2>/dev/null; then
+            if [ -s /tmp/secret_hits.txt ]; then
+              echo "### :warning: Potential secrets in code" >> "$GITHUB_STEP_SUMMARY"
               echo '```' >> "$GITHUB_STEP_SUMMARY"
-              cat /tmp/security_hits >> "$GITHUB_STEP_SUMMARY"
-              echo '```' >> "$GITHUB_STEP_SUMMARY"
-              ISSUES=$((ISSUES+1))
-            fi
-          fi
-
-          # eval / exec usage
-          if echo "${{ steps.diff.outputs.diff }}" | grep -E "^\+.*\b(eval|exec)\b" | grep -v "test_" | head -5 > /tmp/eval_hits; then
-            if [ -s /tmp/eval_hits ]; then
-              echo "### ⚠️ eval/exec usage detected" >> "$GITHUB_STEP_SUMMARY"
-              echo '```' >> "$GITHUB_STEP_SUMMARY"
-              cat /tmp/eval_hits >> "$GITHUB_STEP_SUMMARY"
+              head -5 /tmp/secret_hits.txt >> "$GITHUB_STEP_SUMMARY"
               echo '```' >> "$GITHUB_STEP_SUMMARY"
               ISSUES=$((ISSUES+1))
             fi
           fi
 
-          # subprocess / os.system
-          if echo "${{ steps.diff.outputs.diff }}" | grep -E "^\+.*\b(subprocess|os\.system|os\.popen)\b" | head -5 > /tmp/subprocess_hits; then
-            if [ -s /tmp/subprocess_hits ]; then
-              echo "### ⚠️ subprocess/os.system usage" >> "$GITHUB_STEP_SUMMARY"
+          # Check 2: eval/exec
+          if grep -E "^\+.*\b(eval|exec)\s*\(" /tmp/pr_diff.txt \
+            | grep -v "test_" \
+            > /tmp/eval_hits.txt 2>/dev/null; then
+            if [ -s /tmp/eval_hits.txt ]; then
+              echo "### :warning: eval/exec usage detected" >> "$GITHUB_STEP_SUMMARY"
               echo '```' >> "$GITHUB_STEP_SUMMARY"
-              cat /tmp/subprocess_hits >> "$GITHUB_STEP_SUMMARY"
+              head -5 /tmp/eval_hits.txt >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              ISSUES=$((ISSUES+1))
+            fi
+          fi
+
+          # Check 3: subprocess / os.system
+          if grep -E "^\+.*\b(subprocess|os\.system|os\.popen)\b" /tmp/pr_diff.txt \
+            > /tmp/subprocess_hits.txt 2>/dev/null; then
+            if [ -s /tmp/subprocess_hits.txt ]; then
+              echo "### :warning: subprocess/os.system usage" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              head -5 /tmp/subprocess_hits.txt >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              ISSUES=$((ISSUES+1))
+            fi
+          fi
+
+          # Check 4: SQL injection patterns
+          if grep -E "^\+.*\bf['\"].*\{.*\}.*SELECT|INSERT|UPDATE|DELETE" /tmp/pr_diff.txt \
+            > /tmp/sql_hits.txt 2>/dev/null; then
+            if [ -s /tmp/sql_hits.txt ]; then
+              echo "### :warning: Potential SQL injection" >> "$GITHUB_STEP_SUMMARY"
+              echo '```' >> "$GITHUB_STEP_SUMMARY"
+              head -5 /tmp/sql_hits.txt >> "$GITHUB_STEP_SUMMARY"
               echo '```' >> "$GITHUB_STEP_SUMMARY"
               ISSUES=$((ISSUES+1))
             fi
           fi
 
           if [ "$ISSUES" -eq 0 ]; then
-            echo "### ✅ No security concerns found" >> "$GITHUB_STEP_SUMMARY"
+            echo "### :white_check_mark: No security concerns found" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "---" >> "$GITHUB_STEP_SUMMARY"
-          echo "*Automated security + quality review*" >> "$GITHUB_STEP_SUMMARY"
+          echo "*Automated security review (Gate 2)*" >> "$GITHUB_STEP_SUMMARY"
