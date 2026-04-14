@@ -70,6 +70,11 @@ class NarratorClient:
         with open(file_path, "rb") as f:
             httpx.Client(timeout=300).put(upload_url, content=f, headers={"Content-Type": content_type})
 
+    def post_no_auth(self, path: str, json: dict[str, Any] | None = None) -> Any:
+        """POST without app-key header (for endpoints like login)."""
+        resp = httpx.Client(timeout=self.timeout).post(self._url(path), json=json)
+        return self._handle(resp)
+
     def close(self) -> None:
         if self._client and not self._client.is_closed:
             self._client.close()

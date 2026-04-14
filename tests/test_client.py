@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -108,3 +108,23 @@ class TestGetAndPost:
         result = client.post("/v2/task/create", json={"name": "test"})
         mock_httpx_client.post.assert_called_once_with("https://api.test.com/v2/task/create", json={"name": "test"})
         assert result == {"task_id": "abc"}
+
+
+class TestPostNoAuth:
+    def test_post_no_auth_does_not_use_app_key(self) -> None:
+        client = NarratorClient(server="https://api.test.com", app_key="should-not-appear")
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"code": 10000, "data": {"token": "xyz"}}
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("client.httpx.Client") as mock_client_cls:
+            mock_instance = MagicMock()
+            mock_instance.post.return_value = mock_response
+            mock_client_cls.return_value = mock_instance
+
+            result = client.post_no_auth("/v1/users/sign_in", json={"username": "u", "password": "p"})
+            mock_instance.post.assert_called_once_with(
+                "https://api.test.com/v1/users/sign_in", json={"username": "u", "password": "p"}
+            )
+            assert result == {"token": "xyz"}

@@ -72,6 +72,19 @@ LANG_ZH: dict[str, str] = {
     "user": "用户",
     "balance": "余额",
     "company": "公司",
+    "login": "登录",
+    "username": "用户名",
+    "password": "密码",
+    "login_btn": "登录",
+    "login_result": "登录结果",
+    "api_keys": "API 密钥列表",
+    "list_keys": "查询密钥",
+    "key_result": "密钥信息",
+    "create_key": "创建密钥",
+    "key_remark": "备注",
+    "key_quota": "配额",
+    "create_key_btn": "创建",
+    "create_key_result": "创建结果",
     "no_tasks": "未找到任务。",
     "step1": "步骤 1/3：正在为 [{movie}] 生成解说文案...",
     "task_created": "  任务已创建：{task_id}",
@@ -149,6 +162,19 @@ LANG_EN: dict[str, str] = {
     "user": "User",
     "balance": "Balance",
     "company": "Company",
+    "login": "Login",
+    "username": "Username",
+    "password": "Password",
+    "login_btn": "Login",
+    "login_result": "Login Result",
+    "api_keys": "API Keys",
+    "list_keys": "List Keys",
+    "key_result": "Key Info",
+    "create_key": "Create Key",
+    "key_remark": "Remark",
+    "key_quota": "Quota",
+    "create_key_btn": "Create",
+    "create_key_result": "Create Result",
     "no_tasks": "No tasks found.",
     "step1": "Step 1/3: Generating narration script for [{movie}]...",
     "task_created": "  Task created: {task_id}",
@@ -201,9 +227,9 @@ def load_materials(app_key: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     try:
         data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 100})
     except NarratorAPIError as e:
-        raise gr.Error(f"API Error [{e.code}]: {e.message}")
+        raise gr.Error(f"API Error [{e.code}]: {e.message}") from e
     except Exception as e:
-        raise gr.Error(f"Connection error: {e}")
+        raise gr.Error(f"Connection error: {e}") from e
     items = data.get("items", [])
     choices = [f"{m.get('name', '')} ({m.get('title', '')})" for m in items]
     return gr.update(choices=choices), items
@@ -439,6 +465,34 @@ def check_balance(app_key: str) -> str:
     )
 
 
+def user_login(username: str, password: str) -> str:
+    if not username.strip() or not password.strip():
+        raise gr.Error(t("api_key_missing"))
+    client = NarratorClient()
+    try:
+        data = client.post_no_auth("/v1/users/sign_in", json={"username": username, "password": password})
+    except NarratorAPIError as e:
+        raise gr.Error(f"Login failed: {e.message}") from e
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def list_api_keys(app_key: str, page: float, page_size: float) -> str:
+    client = get_client(app_key)
+    data = client.get("/v1/users/app_key/sub/list", params={"page": int(page), "pageSize": int(page_size)})
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def create_api_key(app_key: str, remark: str, quota: float) -> str:
+    client = get_client(app_key)
+    body: dict[str, Any] = {}
+    if remark.strip():
+        body["remark"] = remark.strip()
+    if quota > 0:
+        body["quota"] = quota
+    data = client.post("/v1/users/app_key/create", json=body)
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
 # ---------------------------------------------------------------------------
 # Language switch
 # ---------------------------------------------------------------------------
@@ -480,8 +534,20 @@ def build_ui_updates() -> list[dict[str, Any]]:
         gr.update(value=t("create")),  # create_btn
         gr.update(label=t("result")),  # create_output
         # Tab 4
+        gr.update(label=t("username"), placeholder=t("username")),  # login_username
+        gr.update(label=t("password")),  # login_password
+        gr.update(value=t("login_btn")),  # login_btn
+        gr.update(label=t("login_result")),  # login_output
         gr.update(value=t("check_balance")),  # balance_btn
         gr.update(label=t("account_info")),  # balance_output
+        gr.update(label=t("page")),  # keys_page
+        gr.update(label=t("limit")),  # keys_size
+        gr.update(value=t("list_keys")),  # list_keys_btn
+        gr.update(label=t("key_result")),  # keys_output
+        gr.update(label=t("key_remark"), placeholder=t("key_remark")),  # new_key_remark
+        gr.update(label=t("key_quota")),  # new_key_quota
+        gr.update(value=t("create_key_btn")),  # create_key_btn
+        gr.update(label=t("create_key_result")),  # create_key_output
     ]
 
 
@@ -604,9 +670,36 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
     # ── Tab 4: Account ────────────────────────────────────────────────────
     with gr.Tab("账户 / Account", id="tab-account"):
-        balance_btn = gr.Button(t("check_balance"))
-        balance_output = gr.Textbox(label=t("account_info"), lines=5, interactive=False)
-        balance_btn.click(check_balance, inputs=[app_key], outputs=[balance_output])
+        with gr.Accordion(t("login"), open=True):
+            with gr.Row():
+                login_username = gr.Textbox(label=t("username"), placeholder=t("username"))
+                login_password = gr.Textbox(label=t("password"), type="password")
+            login_btn = gr.Button(t("login_btn"), variant="primary")
+            login_output = gr.Textbox(label=t("login_result"), lines=8, interactive=False)
+            login_btn.click(user_login, inputs=[login_username, login_password], outputs=[login_output])
+
+        with gr.Accordion(t("check_balance"), open=False):
+            balance_btn = gr.Button(t("check_balance"))
+            balance_output = gr.Textbox(label=t("account_info"), lines=5, interactive=False)
+            balance_btn.click(check_balance, inputs=[app_key], outputs=[balance_output])
+
+        with gr.Accordion(t("api_keys"), open=False):
+            with gr.Row():
+                keys_page = gr.Number(label=t("page"), value=1, minimum=1)
+                keys_size = gr.Number(label=t("limit"), value=10, minimum=1, maximum=100)
+            list_keys_btn = gr.Button(t("list_keys"))
+            keys_output = gr.Textbox(label=t("key_result"), lines=10, interactive=False)
+            list_keys_btn.click(list_api_keys, inputs=[app_key, keys_page, keys_size], outputs=[keys_output])
+
+        with gr.Accordion(t("create_key"), open=False):
+            with gr.Row():
+                new_key_remark = gr.Textbox(label=t("key_remark"), placeholder=t("key_remark"))
+                new_key_quota = gr.Number(label=t("key_quota"), value=0, minimum=0)
+            create_key_btn = gr.Button(t("create_key_btn"), variant="primary")
+            create_key_output = gr.Textbox(label=t("create_key_result"), lines=8, interactive=False)
+            create_key_btn.click(
+                create_api_key, inputs=[app_key, new_key_remark, new_key_quota], outputs=[create_key_output]
+            )
 
     # ── Language switch event ─────────────────────────────────────────────
     all_updatable = [
@@ -634,8 +727,20 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
         stream_check,
         create_btn,
         create_output,
+        login_username,
+        login_password,
+        login_btn,
+        login_output,
         balance_btn,
         balance_output,
+        keys_page,
+        keys_size,
+        list_keys_btn,
+        keys_output,
+        new_key_remark,
+        new_key_quota,
+        create_key_btn,
+        create_key_output,
     ]
     lang_btn.click(switch_language, outputs=all_updatable)
 
