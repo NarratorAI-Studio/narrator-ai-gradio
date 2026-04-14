@@ -135,6 +135,8 @@ LANG_ZH: dict[str, str] = {
     "prog_video": "正在合成视频...",
     "prog_wait_video": "等待视频...",
     "prog_done": "完成！",
+    "preview_voice": "试听配音",
+    "preview_btn": "试听",
     "lang_switch": "English",
 }
 
@@ -250,6 +252,8 @@ LANG_EN: dict[str, str] = {
     "prog_video": "Composing video...",
     "prog_wait_video": "Waiting for video...",
     "prog_done": "Done!",
+    "preview_voice": "Preview Voice",
+    "preview_btn": "Preview",
     "lang_switch": "中文",
 }
 
@@ -647,6 +651,31 @@ def check_storage(app_key: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Library: voice preview
+# ---------------------------------------------------------------------------
+
+VOICE_PREVIEW_TEXT = "大家好，欢迎收看今天的电影解说，让我们一起走进这个精彩的故事。"
+VOICE_PREVIEW_TEXT_EN = "Hello everyone, welcome to today's movie narration. Let's explore this amazing story together."
+
+
+def preview_voice(app_key: str, voice_name: str) -> str:
+    """Create a TTS sample with the selected voice."""
+    if not voice_name.strip():
+        raise gr.Error(t("voice_not_found", name=""))
+    dubbing_id, dubbing_type = find_voice_id(voice_name)
+    client = get_client(app_key)
+    preview_text = VOICE_PREVIEW_TEXT if dubbing_type == "普通话" else VOICE_PREVIEW_TEXT_EN
+    try:
+        data = client.post(
+            TASK_ENDPOINTS["tts"],
+            json={"voice_id": dubbing_id, "audio_text": preview_text},
+        )
+        return json.dumps(data, ensure_ascii=False, indent=2)
+    except NarratorAPIError as e:
+        return f"Preview unavailable: {e.message}"
+
+
+# ---------------------------------------------------------------------------
 # Language switch
 # ---------------------------------------------------------------------------
 
@@ -726,6 +755,18 @@ def build_ui_updates() -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Build UI
 # ---------------------------------------------------------------------------
+
+CUSTOM_CSS = """
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .gradio-row { flex-direction: column !important; }
+    .gradio-row > .gradio-column { min-width: 100% !important; }
+    .gradio-button { min-height: 44px !important; }
+    .gradio-dropdown { min-height: 44px !important; }
+}
+/* Loading indicator on buttons */
+.gradio-button[disabled] { opacity: 0.6; cursor: wait !important; }
+"""
 
 with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
     with gr.Row():
@@ -839,6 +880,19 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
                 value=[[v["name"], v["id"], v["type"], v["tag"]] for v in DUBBING_LIST],
                 headers=[t("voice"), t("dubbing_id"), t("language"), t("tag")],
                 interactive=False,
+            )
+            with gr.Row():
+                preview_voice_input = gr.Dropdown(
+                    choices=[v["name"] for v in DUBBING_LIST],
+                    label=t("voice"),
+                    scale=3,
+                )
+                preview_voice_btn = gr.Button("Preview / 试听", scale=1)
+            preview_voice_output = gr.Textbox(label=t("result"), lines=4, interactive=False)
+            preview_voice_btn.click(
+                preview_voice,
+                inputs=[app_key, preview_voice_input],
+                outputs=[preview_voice_output],
             )
         with gr.Accordion(t("bgm_tracks"), open=False):
             gr.Dataframe(
@@ -976,4 +1030,4 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
 
 if __name__ == "__main__":
-    app.launch(theme=gr.themes.Soft())
+    app.launch(theme=gr.themes.Soft(), css=CUSTOM_CSS)
