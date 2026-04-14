@@ -103,6 +103,13 @@ LANG_ZH: dict[str, str] = {
     "storage": "存储用量",
     "storage_btn": "查询用量",
     "storage_result": "用量信息",
+    "search_movie": "搜索电影",
+    "search_placeholder": "输入电影名称搜索",
+    "search_btn": "搜索",
+    "search_result": "搜索结果",
+    "or_search": "或搜索未收录的电影：",
+    "video_url": "视频下载链接",
+    "no_video_url": "视频生成中或暂无下载链接，请稍后用任务 ID 查询。",
     "no_tasks": "未找到任务。",
     "step1": "步骤 1/3：正在为 [{movie}] 生成解说文案...",
     "task_created": "  任务已创建：{task_id}",
@@ -211,6 +218,13 @@ LANG_EN: dict[str, str] = {
     "storage": "Storage",
     "storage_btn": "Check Usage",
     "storage_result": "Storage Info",
+    "search_movie": "Search Movie",
+    "search_placeholder": "Enter movie name to search",
+    "search_btn": "Search",
+    "search_result": "Search Results",
+    "or_search": "Or search for unlisted movies:",
+    "video_url": "Video Download Link",
+    "no_video_url": "Video is being generated or not yet available. Query the task ID later.",
     "no_tasks": "No tasks found.",
     "step1": "Step 1/3: Generating narration script for [{movie}]...",
     "task_created": "  Task created: {task_id}",
@@ -269,6 +283,35 @@ def load_materials(app_key: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     items = data.get("items", [])
     choices = [f"{m.get('name', '')} ({m.get('title', '')})" for m in items]
     return gr.update(choices=choices), items
+
+
+def search_movie(app_key: str, query: str) -> str:
+    """Search for movies not in the pre-built library."""
+    if not query.strip():
+        raise gr.Error(t("search_placeholder"))
+    client = get_client(app_key)
+    data = client.get("/v2/task/commentary/search_media_information", params={"keyword": query.strip()})
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def extract_video_url(task_result: dict[str, Any]) -> str:
+    """Try to extract video download URL from a completed task result."""
+    results = task_result.get("results", {})
+    # Check common locations for video URLs
+    for key in ("video_url", "download_url", "url", "video_oss_url"):
+        if key in results and results[key]:
+            return str(results[key])
+    # Check in tasks array
+    tasks = results.get("tasks", [])
+    for t_item in tasks:
+        for key in ("video_url", "download_url", "url"):
+            if key in t_item and t_item[key]:
+                return str(t_item[key])
+    # Check file_ids
+    file_ids = results.get("file_ids", [])
+    if file_ids:
+        return f"file_id: {file_ids[0]} (use File tab to get download link)"
+    return ""
 
 
 def filter_voices(language: str) -> dict[str, Any]:
@@ -437,7 +480,16 @@ def wizard_generate(
     vc_query = poll_task(client, vc_task_id, max_wait=900)
 
     progress(1.0, desc=t("prog_done"))
-    yield log(f"{t('done')}\n\nTask ID: {vc_task_id}\nResult:\n{json.dumps(vc_query, ensure_ascii=False, indent=2)}")
+
+    # Extract video URL for prominent display
+    video_url = extract_video_url(vc_query)
+    result_lines = [t("done"), "", f"Task ID: {vc_task_id}"]
+    if video_url:
+        result_lines.extend(["", f"🎬 {t('video_url')}: {video_url}"])
+    else:
+        result_lines.extend(["", t("no_video_url")])
+    result_lines.extend(["", "--- Raw Result ---", json.dumps(vc_query, ensure_ascii=False, indent=2)])
+    yield log("\n".join(result_lines))
 
 
 # ---------------------------------------------------------------------------
@@ -615,6 +667,9 @@ def build_ui_updates() -> list[dict[str, Any]]:
         gr.update(value=t("wizard_desc")),  # wizard_desc_md
         gr.update(value=t("load_movies")),  # load_btn
         gr.update(label=t("movie")),  # movie_dropdown
+        gr.update(label=t("search_movie"), placeholder=t("search_placeholder")),  # search_input
+        gr.update(value=t("search_btn")),  # search_btn
+        gr.update(label=t("search_result")),  # search_output
         gr.update(label=t("genre_filter")),  # genre_dropdown
         gr.update(label=t("narration_style")),  # style_dropdown
         gr.update(label=t("language")),  # lang_dropdown
@@ -693,6 +748,12 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
             load_btn = gr.Button(t("load_movies"), variant="secondary")
             movie_dropdown = gr.Dropdown(label=t("movie"), interactive=True)
 
+        with gr.Accordion(t("or_search"), open=False):
+            with gr.Row():
+                search_input = gr.Textbox(label=t("search_movie"), placeholder=t("search_placeholder"))
+                search_btn = gr.Button(t("search_btn"), variant="secondary")
+            search_output = gr.Textbox(label=t("search_result"), lines=6, interactive=False)
+
         with gr.Row():
             genre_dropdown = gr.Dropdown(
                 choices=[""] + STYLE_GENRES,
@@ -724,6 +785,7 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
         output_log = gr.Textbox(label=t("progress"), lines=15, interactive=False)
 
         load_btn.click(load_materials, inputs=[app_key], outputs=[movie_dropdown, materials_state])
+        search_btn.click(search_movie, inputs=[app_key, search_input], outputs=[search_output])
         genre_dropdown.change(filter_styles, inputs=[genre_dropdown], outputs=[style_dropdown])
         lang_dropdown.change(filter_voices, inputs=[lang_dropdown], outputs=[voice_dropdown])
         generate_btn.click(
@@ -859,6 +921,9 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
         wizard_desc_md,
         load_btn,
         movie_dropdown,
+        search_input,
+        search_btn,
+        search_output,
         genre_dropdown,
         style_dropdown,
         lang_dropdown,
