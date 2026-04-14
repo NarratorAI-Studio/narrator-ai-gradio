@@ -190,7 +190,12 @@ def get_client(app_key: str) -> NarratorClient:
 
 def load_materials(app_key: str):
     client = get_client(app_key)
-    data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 200})
+    try:
+        data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 200})
+    except NarratorAPIError as e:
+        raise gr.Error(f"API Error [{e.code}]: {e.message}")
+    except Exception as e:
+        raise gr.Error(f"Connection error: {e}")
     items = data.get("items", [])
     choices = [f"{m.get('name', '')} ({m.get('title', '')})" for m in items]
     return gr.update(choices=choices), items
