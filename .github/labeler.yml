@@ -1,0 +1,23 @@
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
+
+app:
+  - changed-files:
+      - any-glob-to-any-file: 'app.py'
+
+client:
+  - changed-files:
+      - any-glob-to-any-file: 'client.py'
+
+data:
+  - changed-files:
+      - any-glob-to-any-file: 'data.py'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file: '*.md'
