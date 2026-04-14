@@ -14,10 +14,10 @@ from data import (
 
 class TestListCounts:
     def test_bgm_list_count(self) -> None:
-        assert len(BGM_LIST) == 30
+        assert len(BGM_LIST) == 146
 
     def test_dubbing_list_count(self) -> None:
-        assert len(DUBBING_LIST) == 35
+        assert len(DUBBING_LIST) == 63
 
     def test_narration_styles_count(self) -> None:
         assert len(NARRATION_STYLES) == 90
