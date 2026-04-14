@@ -6,6 +6,7 @@ on:
 
 jobs:
   deploy:
+    # TODO: switch back to blacksmith-2vcpu-ubuntu-2204 after account unsuspended
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +15,5 @@ jobs:
 
       - name: Push to HF Spaces
         run: |
-          git remote add hf https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/paulpang/narrator-ai
+          git remote add hf https://user:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/${{ vars.HF_SPACE_ID }}
           git push hf main --force

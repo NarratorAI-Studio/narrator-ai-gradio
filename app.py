@@ -1,14 +1,21 @@
 """Narrator AI — Gradio Web UI (bilingual: Chinese / English)."""
 
+from __future__ import annotations
+
 import json
 import time
+from collections.abc import Generator
+from typing import Any
 
 import gradio as gr
 
-from client import NarratorClient, NarratorAPIError
+from client import NarratorAPIError, NarratorClient
 from data import (
-    BGM_LIST, DUBBING_LIST, DUBBING_LANGUAGES,
-    NARRATION_STYLES, STYLE_GENRES,
+    BGM_LIST,
+    DUBBING_LANGUAGES,
+    DUBBING_LIST,
+    NARRATION_STYLES,
+    STYLE_GENRES,
     TASK_ENDPOINTS,
 )
 
@@ -16,7 +23,7 @@ from data import (
 # i18n
 # ---------------------------------------------------------------------------
 
-LANG_ZH = {
+LANG_ZH: dict[str, str] = {
     "title": "# AI 解说大师\nAI 驱动的视频解说生成平台",
     "api_key_label": "API 密钥",
     "api_key_placeholder": "输入你的 Narrator AI API 密钥",
@@ -93,7 +100,7 @@ LANG_ZH = {
     "lang_switch": "English",
 }
 
-LANG_EN = {
+LANG_EN: dict[str, str] = {
     "title": "# Narrator AI\nAI-powered video narration generation platform",
     "api_key_label": "API Key",
     "api_key_placeholder": "Enter your Narrator AI API key",
@@ -171,7 +178,7 @@ LANG_EN = {
 }
 
 # Current language state — default Chinese
-_current_lang = LANG_ZH
+_current_lang: dict[str, str] = LANG_ZH
 
 
 def t(key: str, **kwargs) -> str:
@@ -188,7 +195,8 @@ def get_client(app_key: str) -> NarratorClient:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def load_materials(app_key: str):
+
+def load_materials(app_key: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     client = get_client(app_key)
     try:
         data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 100})
@@ -201,19 +209,13 @@ def load_materials(app_key: str):
     return gr.update(choices=choices), items
 
 
-def filter_voices(language: str):
-    if not language:
-        voices = DUBBING_LIST
-    else:
-        voices = [d for d in DUBBING_LIST if d["type"] == language]
+def filter_voices(language: str) -> dict[str, Any]:
+    voices = DUBBING_LIST if not language else [d for d in DUBBING_LIST if d["type"] == language]
     return gr.update(choices=[v["name"] for v in voices])
 
 
-def filter_styles(genre: str):
-    if not genre:
-        styles = NARRATION_STYLES
-    else:
-        styles = [s for s in NARRATION_STYLES if s["genre"] == genre]
+def filter_styles(genre: str) -> dict[str, Any]:
+    styles = NARRATION_STYLES if not genre else [s for s in NARRATION_STYLES if s["genre"] == genre]
     return gr.update(choices=[f"{s['name']} ({s['genre']})" for s in styles])
 
 
@@ -239,7 +241,7 @@ def find_style_id(style_display: str) -> str:
     raise gr.Error(t("style_not_found", name=style_display))
 
 
-def poll_task(client: NarratorClient, task_id: str, max_wait: int = 600) -> dict:
+def poll_task(client: NarratorClient, task_id: str, max_wait: int = 600) -> dict[str, Any]:
     start = time.time()
     while time.time() - start < max_wait:
         result = client.get(f"/v2/task/commentary/query/{task_id}")
@@ -256,7 +258,16 @@ def poll_task(client: NarratorClient, task_id: str, max_wait: int = 600) -> dict
 # Tab 1: Wizard
 # ---------------------------------------------------------------------------
 
-def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_name, bgm_name, progress=gr.Progress()):
+
+def wizard_generate(
+    app_key: str,
+    movie_idx: str,
+    materials_state: list[dict[str, Any]],
+    style_display: str,
+    voice_name: str,
+    bgm_name: str,
+    progress: Any = gr.Progress(),  # noqa: B008
+) -> Generator[str, None, None]:
     client = get_client(app_key)
 
     if not materials_state or movie_idx is None:
@@ -281,7 +292,7 @@ def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_na
 
     log_lines = []
 
-    def log(msg):
+    def log(msg: str) -> str:
         log_lines.append(msg)
         return "\n".join(log_lines)
 
@@ -301,7 +312,7 @@ def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_na
     try:
         fw_result = client.post(TASK_ENDPOINTS["fast-writing"], json=fw_body)
     except NarratorAPIError as e:
-        raise gr.Error(f"fast-writing: {e.message}")
+        raise gr.Error(f"fast-writing: {e.message}") from e
 
     fw_task_id = fw_result.get("task_id", "")
     yield log(t("task_created", task_id=fw_task_id))
@@ -325,14 +336,12 @@ def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_na
         "bgm": bgm_id,
         "dubbing": dubbing_id,
         "dubbing_type": dubbing_type,
-        "episodes_data": [
-            {"video_oss_key": video_file_id, "srt_oss_key": srt_file_id, "num": 1}
-        ],
+        "episodes_data": [{"video_oss_key": video_file_id, "srt_oss_key": srt_file_id, "num": 1}],
     }
     try:
         fcd_result = client.post(TASK_ENDPOINTS["fast-clip-data"], json=fcd_body)
     except NarratorAPIError as e:
-        raise gr.Error(f"fast-clip-data: {e.message}")
+        raise gr.Error(f"fast-clip-data: {e.message}") from e
 
     fcd_task_id = fcd_result.get("task_id", "")
     yield log(t("task_created", task_id=fcd_task_id))
@@ -356,7 +365,7 @@ def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_na
     try:
         vc_result = client.post(TASK_ENDPOINTS["video-composing"], json=vc_body)
     except NarratorAPIError as e:
-        raise gr.Error(f"video-composing: {e.message}")
+        raise gr.Error(f"video-composing: {e.message}") from e
 
     vc_task_id = vc_result.get("task_id", "")
     yield log(t("task_created", task_id=vc_task_id))
@@ -373,24 +382,29 @@ def wizard_generate(app_key, movie_idx, materials_state, style_display, voice_na
 # Tab 2: Task management
 # ---------------------------------------------------------------------------
 
-def query_task(app_key, task_id):
+
+def query_task(app_key: str, task_id: str) -> str:
     client = get_client(app_key)
     result = client.get(f"/v2/task/commentary/query/{task_id}")
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-def list_tasks(app_key, page, limit):
+def list_tasks(app_key: str, page: float, limit: float) -> str:
     client = get_client(app_key)
-    result = client.get("/v2/task/commentary/list", params={
-        "page": int(page), "limit": int(limit),
-    })
+    result = client.get(
+        "/v2/task/commentary/list",
+        params={
+            "page": int(page),
+            "limit": int(limit),
+        },
+    )
     items = result.get("items", [])
     if not items:
         return t("no_tasks")
     return json.dumps(result, ensure_ascii=False, indent=2)
 
 
-def create_task_advanced(app_key, task_type, body_json, use_stream):
+def create_task_advanced(app_key: str, task_type: str, body_json: str, use_stream: bool) -> Generator[str, None, None]:
     client = get_client(app_key)
     endpoint = TASK_ENDPOINTS.get(task_type)
     if not endpoint:
@@ -414,7 +428,8 @@ def create_task_advanced(app_key, task_type, body_json, use_stream):
 # Tab 3: Account
 # ---------------------------------------------------------------------------
 
-def check_balance(app_key):
+
+def check_balance(app_key: str) -> str:
     client = get_client(app_key)
     data = client.get("/v1/users/balance")
     return (
@@ -428,47 +443,45 @@ def check_balance(app_key):
 # Language switch
 # ---------------------------------------------------------------------------
 
-def switch_language():
+
+def switch_language() -> list[dict[str, Any]]:
     global _current_lang
-    if _current_lang is LANG_ZH:
-        _current_lang = LANG_EN
-    else:
-        _current_lang = LANG_ZH
+    _current_lang = LANG_EN if _current_lang is LANG_ZH else LANG_ZH
     return build_ui_updates()
 
 
-def build_ui_updates():
+def build_ui_updates() -> list[dict[str, Any]]:
     """Return updated labels/values for all UI components after language switch."""
     return [
-        gr.update(value=t("title")),                          # title_md
+        gr.update(value=t("title")),  # title_md
         gr.update(label=t("api_key_label"), placeholder=t("api_key_placeholder")),  # app_key
-        gr.update(value=t("lang_switch")),                    # lang_btn
+        gr.update(value=t("lang_switch")),  # lang_btn
         # Tab 1
-        gr.update(value=t("wizard_desc")),                    # wizard_desc_md
-        gr.update(value=t("load_movies")),                    # load_btn
-        gr.update(label=t("movie")),                          # movie_dropdown
-        gr.update(label=t("genre_filter")),                   # genre_dropdown
-        gr.update(label=t("narration_style")),                # style_dropdown
-        gr.update(label=t("language")),                       # lang_dropdown
-        gr.update(label=t("voice")),                          # voice_dropdown
-        gr.update(label=t("bgm")),                            # bgm_dropdown
-        gr.update(value=t("generate")),                       # generate_btn
-        gr.update(label=t("progress")),                       # output_log
+        gr.update(value=t("wizard_desc")),  # wizard_desc_md
+        gr.update(value=t("load_movies")),  # load_btn
+        gr.update(label=t("movie")),  # movie_dropdown
+        gr.update(label=t("genre_filter")),  # genre_dropdown
+        gr.update(label=t("narration_style")),  # style_dropdown
+        gr.update(label=t("language")),  # lang_dropdown
+        gr.update(label=t("voice")),  # voice_dropdown
+        gr.update(label=t("bgm")),  # bgm_dropdown
+        gr.update(value=t("generate")),  # generate_btn
+        gr.update(label=t("progress")),  # output_log
         # Tab 2
         gr.update(label=t("task_id"), placeholder=t("task_id_placeholder")),  # task_id_input
-        gr.update(value=t("query")),                          # query_btn
-        gr.update(label=t("result")),                         # query_output
-        gr.update(label=t("page")),                           # page_input
-        gr.update(label=t("limit")),                          # limit_input
-        gr.update(value=t("list")),                           # list_btn
-        gr.update(label=t("result")),                         # list_output
-        gr.update(label=t("task_type")),                      # task_type_dropdown
-        gr.update(label=t("stream")),                         # stream_check
-        gr.update(value=t("create")),                         # create_btn
-        gr.update(label=t("result")),                         # create_output
+        gr.update(value=t("query")),  # query_btn
+        gr.update(label=t("result")),  # query_output
+        gr.update(label=t("page")),  # page_input
+        gr.update(label=t("limit")),  # limit_input
+        gr.update(value=t("list")),  # list_btn
+        gr.update(label=t("result")),  # list_output
+        gr.update(label=t("task_type")),  # task_type_dropdown
+        gr.update(label=t("stream")),  # stream_check
+        gr.update(value=t("create")),  # create_btn
+        gr.update(label=t("result")),  # create_output
         # Tab 4
-        gr.update(value=t("check_balance")),                  # balance_btn
-        gr.update(label=t("account_info")),                   # balance_output
+        gr.update(value=t("check_balance")),  # balance_btn
+        gr.update(label=t("account_info")),  # balance_output
     ]
 
 
@@ -477,7 +490,6 @@ def build_ui_updates():
 # ---------------------------------------------------------------------------
 
 with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
-
     with gr.Row():
         title_md = gr.Markdown(t("title"))
         lang_btn = gr.Button(t("lang_switch"), size="sm", scale=0, min_width=80)
@@ -500,7 +512,9 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
         with gr.Row():
             genre_dropdown = gr.Dropdown(
-                choices=[""] + STYLE_GENRES, label=t("genre_filter"), value="",
+                choices=[""] + STYLE_GENRES,
+                label=t("genre_filter"),
+                value="",
             )
             style_dropdown = gr.Dropdown(
                 choices=[f"{s['name']} ({s['genre']})" for s in NARRATION_STYLES],
@@ -509,7 +523,9 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
         with gr.Row():
             lang_dropdown = gr.Dropdown(
-                choices=[""] + DUBBING_LANGUAGES, label=t("language"), value="",
+                choices=[""] + DUBBING_LANGUAGES,
+                label=t("language"),
+                value="",
             )
             voice_dropdown = gr.Dropdown(
                 choices=[v["name"] for v in DUBBING_LIST],
@@ -555,7 +571,7 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
                 choices=list(TASK_ENDPOINTS.keys()),
                 label=t("task_type"),
             )
-            body_input = gr.Code(label=t("request_body"), language="json", value='{\n  \n}')
+            body_input = gr.Code(label=t("request_body"), language="json", value="{\n  \n}")
             stream_check = gr.Checkbox(label=t("stream"), value=False)
             create_btn = gr.Button(t("create"), variant="primary")
             create_output = gr.Textbox(label=t("result"), lines=15, interactive=False)
@@ -594,13 +610,32 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
 
     # ── Language switch event ─────────────────────────────────────────────
     all_updatable = [
-        title_md, app_key, lang_btn,
-        wizard_desc_md, load_btn, movie_dropdown, genre_dropdown, style_dropdown,
-        lang_dropdown, voice_dropdown, bgm_dropdown, generate_btn, output_log,
-        task_id_input, query_btn, query_output,
-        page_input, limit_input, list_btn, list_output,
-        task_type_dropdown, stream_check, create_btn, create_output,
-        balance_btn, balance_output,
+        title_md,
+        app_key,
+        lang_btn,
+        wizard_desc_md,
+        load_btn,
+        movie_dropdown,
+        genre_dropdown,
+        style_dropdown,
+        lang_dropdown,
+        voice_dropdown,
+        bgm_dropdown,
+        generate_btn,
+        output_log,
+        task_id_input,
+        query_btn,
+        query_output,
+        page_input,
+        limit_input,
+        list_btn,
+        list_output,
+        task_type_dropdown,
+        stream_check,
+        create_btn,
+        create_output,
+        balance_btn,
+        balance_output,
     ]
     lang_btn.click(switch_language, outputs=all_updatable)
 

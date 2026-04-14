@@ -1,8 +1,11 @@
-"""HTTP client for Narrator AI API — extracted from narrator-ai-cli, no CLI dependencies."""
+"""HTTP client for Narrator AI API."""
+
+from __future__ import annotations
 
 import json as _json
 import os
-from typing import Any, Optional, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 import httpx
 from httpx_sse import connect_sse
@@ -19,11 +22,11 @@ class NarratorAPIError(Exception):
 
 
 class NarratorClient:
-    def __init__(self, server: Optional[str] = None, app_key: Optional[str] = None, timeout: int = 60):
+    def __init__(self, server: str | None = None, app_key: str | None = None, timeout: int = 60) -> None:
         self.server = server or os.environ.get("NARRATOR_SERVER", DEFAULT_SERVER)
         self.app_key = app_key or os.environ.get("NARRATOR_APP_KEY", "")
         self.timeout = timeout
-        self._client: Optional[httpx.Client] = None
+        self._client: httpx.Client | None = None
 
     def _get_client(self) -> httpx.Client:
         if self._client is None or self._client.is_closed:
@@ -33,38 +36,40 @@ class NarratorClient:
     def _url(self, path: str) -> str:
         return f"{self.server}{path}"
 
-    def _handle(self, resp: httpx.Response) -> dict:
+    def _handle(self, resp: httpx.Response) -> Any:
         resp.raise_for_status()
-        data = resp.json()
-        code = data.get("code", 0)
+        data: dict[str, Any] = resp.json()
+        code: int = data.get("code", 0)
         if code != SUCCESS:
             raise NarratorAPIError(code, data.get("message", "Unknown error"))
         return data.get("data") or {}
 
-    def get(self, path: str, params: Optional[dict] = None) -> Any:
+    def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         return self._handle(self._get_client().get(self._url(path), params=params))
 
-    def post(self, path: str, json: Optional[dict] = None) -> Any:
+    def post(self, path: str, json: dict[str, Any] | None = None) -> Any:
         return self._handle(self._get_client().post(self._url(path), json=json))
 
-    def post_sse(self, path: str, json: Optional[dict] = None) -> Iterator[tuple[str, dict]]:
+    def post_sse(self, path: str, json: dict[str, Any] | None = None) -> Iterator[tuple[str, dict[str, Any]]]:
         headers = {"app-key": self.app_key, "Accept": "text/event-stream"}
-        with httpx.Client(timeout=httpx.Timeout(self.timeout, read=300.0)) as c:
-            with connect_sse(c, "POST", self._url(path), json=json, headers=headers) as sse:
-                for event in sse.iter_sse():
-                    try:
-                        data = _json.loads(event.data) if event.data else {}
-                    except _json.JSONDecodeError:
-                        data = {"raw": event.data}
-                    yield event.event, data
+        with (
+            httpx.Client(timeout=httpx.Timeout(self.timeout, read=300.0)) as c,
+            connect_sse(c, "POST", self._url(path), json=json, headers=headers) as sse,
+        ):
+            for event in sse.iter_sse():
+                try:
+                    data = _json.loads(event.data) if event.data else {}
+                except _json.JSONDecodeError:
+                    data = {"raw": event.data}
+                yield event.event, data
 
-    def delete(self, path: str, params: Optional[dict] = None) -> Any:
+    def delete(self, path: str, params: dict[str, Any] | None = None) -> Any:
         return self._handle(self._get_client().delete(self._url(path), params=params))
 
-    def upload_file(self, upload_url: str, file_path: str, content_type: str):
+    def upload_file(self, upload_url: str, file_path: str, content_type: str) -> None:
         with open(file_path, "rb") as f:
             httpx.Client(timeout=300).put(upload_url, content=f, headers={"Content-Type": content_type})
 
-    def close(self):
+    def close(self) -> None:
         if self._client and not self._client.is_closed:
             self._client.close()

@@ -1,7 +1,30 @@
 """Static data — BGM, dubbing voices, narration styles, task type mappings."""
 
+from __future__ import annotations
+
+from typing import TypedDict
+
+
+class BgmItem(TypedDict):
+    name: str
+    id: str
+
+
+class DubbingItem(TypedDict):
+    name: str
+    id: str
+    type: str
+    tag: str
+
+
+class NarrationStyle(TypedDict):
+    genre: str
+    name: str
+    id: str
+
+
 # --- Task type → API endpoint mapping ---
-TASK_ENDPOINTS = {
+TASK_ENDPOINTS: dict[str, str] = {
     "popular-learning": "/v2/task/commentary/create_popular_learning",
     "generate-writing": "/v2/task/commentary/create_generate_writing",
     "fast-writing": "/v2/task/commentary/create_fast_generate_writing",
@@ -14,7 +37,7 @@ TASK_ENDPOINTS = {
 }
 
 # --- Narration style templates (pre-built learning_model_id) ---
-NARRATION_STYLES = [
+NARRATION_STYLES: list[NarrationStyle] = [
     {"genre": "热血动作", "name": "热血动作-困兽之斗解说", "id": "narrator-20250916152104-DYsban"},
     {"genre": "热血动作", "name": "热血动作-战火祈愿解说", "id": "narrator-20251013135241-oscGNF"},
     {"genre": "热血动作", "name": "热血动作-亡命反杀解说", "id": "narrator-20251027094011-kvuJpH"},
@@ -110,7 +133,7 @@ NARRATION_STYLES = [
 STYLE_GENRES = sorted(set(s["genre"] for s in NARRATION_STYLES))
 
 # --- BGM list (from bgm.py) ---
-BGM_LIST = [
+BGM_LIST: list[BgmItem] = [
     {"name": "River Flows in You", "id": "065b0fbb-16f3-4b5e-a326-e05279eb7fc3"},
     {"name": "风居住的街道", "id": "de119e08-72a5-4931-ba0a-e154c9b0c012"},
     {"name": "Destiny & Honor", "id": "c8db6e06-c8d3-45ed-b61c-81c5c1b359fc"},
@@ -144,7 +167,7 @@ BGM_LIST = [
 ]
 
 # --- Dubbing voices (from dubbing.py) ---
-DUBBING_LIST = [
+DUBBING_LIST: list[DubbingItem] = [
     {"name": "霸王别姬-程蝶衣", "id": "MiniMaxVoiceId02586", "type": "普通话", "tag": "角色"},
     {"name": "蜡笔小新", "id": "MiniMaxVoiceId14640", "type": "普通话", "tag": "角色"},
     {"name": "夏洛特烦恼-沈腾", "id": "MiniMaxVoiceId17643", "type": "普通话", "tag": "角色"},
@@ -164,7 +187,12 @@ DUBBING_LIST = [
     {"name": "元气少女音-适合爱情、剧情类", "id": "mercury_xiaochen_48k", "type": "普通话", "tag": "爱情剧情"},
     {"name": "快嘴直爽青年-适合科幻类", "id": "moxidu_meet_24k@kehuan", "type": "普通话", "tag": "科幻"},
     {"name": "冷静青年解说-适合历史、战争类", "id": "mercury_yunxi_48k@calm", "type": "普通话", "tag": "历史战争"},
-    {"name": "沉稳大叔音-适合历史、战争类", "id": "mercury_yunze_24k@documentary-narration", "type": "普通话", "tag": "历史战争"},
+    {
+        "name": "沉稳大叔音-适合历史、战争类",
+        "id": "mercury_yunze_24k@documentary-narration",
+        "type": "普通话",
+        "tag": "历史战争",
+    },
     {"name": "英语-腔调青年音", "id": "mercury_guy_48k", "type": "英语", "tag": "英语"},
     {"name": "英语-温柔御姐音", "id": "chilli_meet_24k", "type": "英语", "tag": "英语"},
     {"name": "英语-慵懒少年音", "id": "arielturner_meet_24k", "type": "英语", "tag": "英语"},
