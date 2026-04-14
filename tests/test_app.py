@@ -78,6 +78,32 @@ class TestGetClient:
             get_client("   ")
 
 
+class TestExtractVideoUrl:
+    def test_extracts_video_url_from_results(self) -> None:
+        from app import extract_video_url
+
+        result = {"results": {"video_url": "https://cdn.example.com/video.mp4"}}
+        assert extract_video_url(result) == "https://cdn.example.com/video.mp4"
+
+    def test_extracts_from_tasks_array(self) -> None:
+        from app import extract_video_url
+
+        result = {"results": {"tasks": [{"video_url": "https://cdn.example.com/v2.mp4"}]}}
+        assert extract_video_url(result) == "https://cdn.example.com/v2.mp4"
+
+    def test_returns_file_id_fallback(self) -> None:
+        from app import extract_video_url
+
+        result = {"results": {"file_ids": ["abc123"]}}
+        assert "abc123" in extract_video_url(result)
+
+    def test_returns_empty_when_no_url(self) -> None:
+        from app import extract_video_url
+
+        assert extract_video_url({"results": {}}) == ""
+        assert extract_video_url({}) == ""
+
+
 class TestLangDicts:
     def test_zh_and_en_have_same_keys(self) -> None:
         from app import LANG_EN, LANG_ZH
