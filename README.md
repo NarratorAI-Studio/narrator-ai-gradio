@@ -53,7 +53,7 @@ Both paths support an optional final step: **magic-video** (visual template appl
 
 ### 2. Use the Web UI
 
-Visit the hosted version: **[huggingface.co/spaces/paulpang/narrator-ai](https://huggingface.co/spaces/paulpang/narrator-ai)**
+Visit the hosted version: **[Narrator AI on HF Spaces](https://huggingface.co/spaces/NarratorAI-Studio/narrator-ai)**
 
 Enter your API key in the top field, then use any tab.
 
@@ -77,7 +77,7 @@ data.py         — Static data: BGM, voices, narration styles, task endpoints
 requirements.txt
 ```
 
-The client is extracted from [narrator-ai-cli](https://github.com/GridLtd-ProductDev/narrator-ai-cli) with all CLI dependencies removed. It communicates directly with `openapi.jieshuo.cn` via REST + SSE.
+The client communicates with the Narrator AI API via REST + SSE.
 
 ## CI/CD
 
@@ -101,7 +101,6 @@ Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
 
 - [Narrator AI](https://www.jieshuo.cn/) — Official website
 - [Apply for API Key](https://ceex7z9m67.feishu.cn/share/base/form/shrcnmSHfAbYrFLsSeIrktEuYGf) — Key application form
-- [narrator-ai-cli](https://github.com/GridLtd-ProductDev/narrator-ai-cli) — CLI tool for terminals and AI agents
 - [API Docs](https://ceex7z9m67.feishu.cn/wiki/WLPnwBysairenFkZDbicZOfKnbc) — Material previews, voice samples, BGM catalog
 
 ## License
