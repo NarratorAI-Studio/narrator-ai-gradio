@@ -191,7 +191,7 @@ def get_client(app_key: str) -> NarratorClient:
 def load_materials(app_key: str):
     client = get_client(app_key)
     try:
-        data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 200})
+        data = client.get("/v2/res/movie-sucai", params={"page": 1, "size": 100})
     except NarratorAPIError as e:
         raise gr.Error(f"API Error [{e.code}]: {e.message}")
     except Exception as e:
