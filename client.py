@@ -39,7 +39,7 @@ class NarratorClient:
         code = data.get("code", 0)
         if code != SUCCESS:
             raise NarratorAPIError(code, data.get("message", "Unknown error"))
-        return data.get("data")
+        return data.get("data") or {}
 
     def get(self, path: str, params: Optional[dict] = None) -> Any:
         return self._handle(self._get_client().get(self._url(path), params=params))
