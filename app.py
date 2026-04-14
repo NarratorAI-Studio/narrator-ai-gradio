@@ -85,6 +85,24 @@ LANG_ZH: dict[str, str] = {
     "key_quota": "配额",
     "create_key_btn": "创建",
     "create_key_result": "创建结果",
+    "files_tab": "文件管理",
+    "upload_file": "上传文件",
+    "upload_btn": "上传",
+    "upload_result": "上传结果",
+    "transfer_link": "远程转存",
+    "link_url": "链接地址",
+    "transfer_btn": "转存",
+    "transfer_result": "转存结果",
+    "file_list": "文件列表",
+    "list_files_btn": "查询文件",
+    "file_list_result": "文件列表",
+    "download_file": "下载文件",
+    "file_id_input": "文件 ID",
+    "download_btn": "获取下载链接",
+    "download_result": "下载链接",
+    "storage": "存储用量",
+    "storage_btn": "查询用量",
+    "storage_result": "用量信息",
     "no_tasks": "未找到任务。",
     "step1": "步骤 1/3：正在为 [{movie}] 生成解说文案...",
     "task_created": "  任务已创建：{task_id}",
@@ -175,6 +193,24 @@ LANG_EN: dict[str, str] = {
     "key_quota": "Quota",
     "create_key_btn": "Create",
     "create_key_result": "Create Result",
+    "files_tab": "Files",
+    "upload_file": "Upload File",
+    "upload_btn": "Upload",
+    "upload_result": "Upload Result",
+    "transfer_link": "Transfer from Link",
+    "link_url": "Link URL",
+    "transfer_btn": "Transfer",
+    "transfer_result": "Transfer Result",
+    "file_list": "File List",
+    "list_files_btn": "List Files",
+    "file_list_result": "File List",
+    "download_file": "Download File",
+    "file_id_input": "File ID",
+    "download_btn": "Get Download Link",
+    "download_result": "Download Link",
+    "storage": "Storage",
+    "storage_btn": "Check Usage",
+    "storage_result": "Storage Info",
     "no_tasks": "No tasks found.",
     "step1": "Step 1/3: Generating narration script for [{movie}]...",
     "task_created": "  Task created: {task_id}",
@@ -494,6 +530,71 @@ def create_api_key(app_key: str, remark: str, quota: float) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Tab 5: File management
+# ---------------------------------------------------------------------------
+
+
+def upload_file(app_key: str, file: Any) -> str:
+    """Upload a local file via 3-step presigned URL flow."""
+    if file is None:
+        raise gr.Error("No file selected.")
+    client = get_client(app_key)
+    import os
+
+    file_path = file.name if hasattr(file, "name") else str(file)
+    file_name = os.path.basename(file_path)
+    file_size = os.path.getsize(file_path)
+
+    # Step 1: get presigned URL
+    presign_data = client.post(
+        "/v2/files/upload/presigned-url",
+        json={"file_name": file_name, "file_size": file_size},
+    )
+    upload_url = presign_data.get("upload_url", "")
+    file_id = presign_data.get("file_id", "")
+
+    # Step 2: upload to presigned URL
+    content_type = "application/octet-stream"
+    client.upload_file(upload_url, file_path, content_type)
+
+    # Step 3: callback
+    callback_data = client.post("/v2/files/upload/callback", json={"file_id": file_id})
+    return json.dumps(
+        {"file_id": file_id, "file_name": file_name, "callback": callback_data},
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
+def transfer_file(app_key: str, link: str) -> str:
+    if not link.strip():
+        raise gr.Error("Please enter a link.")
+    client = get_client(app_key)
+    data = client.post("/v2/files/upload", json={"link": link.strip()})
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def list_files(app_key: str, page: float, page_size: float) -> str:
+    client = get_client(app_key)
+    data = client.get("/v2/files/list", params={"page": int(page), "pageSize": int(page_size)})
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def download_file(app_key: str, file_id: str) -> str:
+    if not file_id.strip():
+        raise gr.Error("Please enter a file ID.")
+    client = get_client(app_key)
+    data = client.post("/v2/files/download/presigned-url", json={"file_id": file_id.strip()})
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+def check_storage(app_key: str) -> str:
+    client = get_client(app_key)
+    data = client.get("/v2/files/user/storage_usage")
+    return json.dumps(data, ensure_ascii=False, indent=2)
+
+
+# ---------------------------------------------------------------------------
 # Language switch
 # ---------------------------------------------------------------------------
 
@@ -548,6 +649,22 @@ def build_ui_updates() -> list[dict[str, Any]]:
         gr.update(label=t("key_quota")),  # new_key_quota
         gr.update(value=t("create_key_btn")),  # create_key_btn
         gr.update(label=t("create_key_result")),  # create_key_output
+        # Tab 4: Files
+        gr.update(label=t("upload_file")),  # file_input
+        gr.update(value=t("upload_btn")),  # upload_btn
+        gr.update(label=t("upload_result")),  # upload_output
+        gr.update(label=t("link_url")),  # link_input
+        gr.update(value=t("transfer_btn")),  # transfer_btn
+        gr.update(label=t("transfer_result")),  # transfer_output
+        gr.update(label=t("page")),  # files_page
+        gr.update(label=t("limit")),  # files_size
+        gr.update(value=t("list_files_btn")),  # list_files_btn
+        gr.update(label=t("file_list_result")),  # files_output
+        gr.update(label=t("file_id_input")),  # dl_file_id
+        gr.update(value=t("download_btn")),  # download_btn
+        gr.update(label=t("download_result")),  # download_output
+        gr.update(value=t("storage_btn")),  # storage_btn
+        gr.update(label=t("storage_result")),  # storage_output
     ]
 
 
@@ -668,7 +785,40 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
                 interactive=False,
             )
 
-    # ── Tab 4: Account ────────────────────────────────────────────────────
+    # ── Tab 4: Files ─────────────────────────────────────────────────────
+    with gr.Tab("文件管理 / Files", id="tab-files"):
+        with gr.Accordion(t("upload_file"), open=True):
+            file_input = gr.File(label=t("upload_file"))
+            upload_btn = gr.Button(t("upload_btn"), variant="primary")
+            upload_output = gr.Textbox(label=t("upload_result"), lines=6, interactive=False)
+            upload_btn.click(upload_file, inputs=[app_key, file_input], outputs=[upload_output])
+
+        with gr.Accordion(t("transfer_link"), open=False):
+            link_input = gr.Textbox(label=t("link_url"), placeholder="https://... or baidu/pikpak link")
+            transfer_btn = gr.Button(t("transfer_btn"))
+            transfer_output = gr.Textbox(label=t("transfer_result"), lines=6, interactive=False)
+            transfer_btn.click(transfer_file, inputs=[app_key, link_input], outputs=[transfer_output])
+
+        with gr.Accordion(t("file_list"), open=False):
+            with gr.Row():
+                files_page = gr.Number(label=t("page"), value=1, minimum=1)
+                files_size = gr.Number(label=t("limit"), value=10, minimum=1, maximum=100)
+            list_files_btn = gr.Button(t("list_files_btn"))
+            files_output = gr.Textbox(label=t("file_list_result"), lines=12, interactive=False)
+            list_files_btn.click(list_files, inputs=[app_key, files_page, files_size], outputs=[files_output])
+
+        with gr.Accordion(t("download_file"), open=False):
+            dl_file_id = gr.Textbox(label=t("file_id_input"), placeholder="Enter file ID")
+            download_btn = gr.Button(t("download_btn"))
+            download_output = gr.Textbox(label=t("download_result"), lines=6, interactive=False)
+            download_btn.click(download_file, inputs=[app_key, dl_file_id], outputs=[download_output])
+
+        with gr.Accordion(t("storage"), open=False):
+            storage_btn = gr.Button(t("storage_btn"))
+            storage_output = gr.Textbox(label=t("storage_result"), lines=4, interactive=False)
+            storage_btn.click(check_storage, inputs=[app_key], outputs=[storage_output])
+
+    # ── Tab 5: Account ────────────────────────────────────────────────────
     with gr.Tab("账户 / Account", id="tab-account"):
         with gr.Accordion(t("login"), open=True):
             with gr.Row():
@@ -741,6 +891,21 @@ with gr.Blocks(title="Narrator AI / AI 解说大师") as app:
         new_key_quota,
         create_key_btn,
         create_key_output,
+        file_input,
+        upload_btn,
+        upload_output,
+        link_input,
+        transfer_btn,
+        transfer_output,
+        files_page,
+        files_size,
+        list_files_btn,
+        files_output,
+        dl_file_id,
+        download_btn,
+        download_output,
+        storage_btn,
+        storage_output,
     ]
     lang_btn.click(switch_language, outputs=all_updatable)
 
