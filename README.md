@@ -53,7 +53,7 @@ Both paths support an optional final step: **magic-video** (visual template appl
 
 ### 2. Use the Web UI
 
-Visit the hosted version: **[Narrator AI on HF Spaces](https://huggingface.co/spaces/NarratorAI-Studio/narrator-ai)**
+Visit the hosted version on [Hugging Face Spaces](https://huggingface.co/spaces) (search "Narrator AI").
 
 Enter your API key in the top field, then use any tab.
 
