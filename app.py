@@ -413,10 +413,8 @@ def wizard_generate(
         "playlet_name": movie_name,
         "target_mode": 1,
         "learning_model_id": style_id,
-        "confirmed_movie_json": {
-            "name": movie_name,
-            "title": movie.get("title", ""),
-        },
+        "model": "Pro",
+        "confirmed_movie_json": movie,
     }
     try:
         fw_result = client.post(TASK_ENDPOINTS["fast-writing"], json=fw_body)
