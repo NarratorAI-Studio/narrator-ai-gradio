@@ -294,7 +294,7 @@ def search_movie(app_key: str, query: str) -> str:
     if not query.strip():
         raise gr.Error(t("search_placeholder"))
     client = get_client(app_key)
-    data = client.get("/v2/task/commentary/search_media_information", params={"keyword": query.strip()})
+    data = client.get("/v2/task/commentary/search_media_information", params={"query": query.strip()})
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
@@ -405,6 +405,25 @@ def wizard_generate(
         log_lines.append(msg)
         return "\n".join(log_lines)
 
+    # Step 0: search movie metadata for confirmed_movie_json
+    progress(0.05, desc=t("prog_script"))
+    try:
+        search_results = client.get(
+            "/v2/task/commentary/search_media_information",
+            params={"query": movie_name},
+        )
+        # search_results may be a list or dict with "data" key
+        if isinstance(search_results, list) and search_results:
+            confirmed_movie = search_results[0]
+        elif isinstance(search_results, dict):
+            data_list = search_results.get("data", search_results)
+            confirmed_movie = data_list[0] if isinstance(data_list, list) and data_list else search_results
+        else:
+            confirmed_movie = {"name": movie_name, "title": movie.get("title", "")}
+    except Exception:
+        # Fallback to basic movie info if search fails
+        confirmed_movie = {"name": movie_name, "title": movie.get("title", "")}
+
     # Step 1: fast-writing
     progress(0.1, desc=t("prog_script"))
     yield log(t("step1", movie=movie_name))
@@ -414,7 +433,7 @@ def wizard_generate(
         "target_mode": 1,
         "learning_model_id": style_id,
         "model": "Pro",
-        "confirmed_movie_json": movie,
+        "confirmed_movie_json": confirmed_movie,
     }
     try:
         fw_result = client.post(TASK_ENDPOINTS["fast-writing"], json=fw_body)
