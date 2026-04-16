@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,7 +20,7 @@ jobs:
       - run: ruff format --check .
 
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,7 +30,7 @@ jobs:
       - run: mypy client.py data.py
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -40,7 +40,7 @@ jobs:
       - run: pytest -v
 
   security:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2204
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
